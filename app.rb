@@ -65,22 +65,19 @@ class App < Roda
             response.status = 403
             { error: "Access denied" }
           else
-            FileUtils.mkdir_p(File.dirname(destination))
             tempfile = r.params["file"][:tempfile]
-            FileUtils.mv(tempfile.path, destination)
 
-            repo = Rugged::Repository.new(public_dir)
-            oid = Rugged::Blob.from_workdir(repo, full_subpath)
+            repo = Rugged::Repository.bare(File.join(public_dir, ".git"))
+            oid = Rugged::Blob.from_io(repo, tempfile)
+            index = Rugged::Index.new
             index = repo.index
             index.add(path: full_subpath, oid: oid, mode: 0100644)
-            index.write
-            commit_tree = index.write_tree(repo)
             commit_author = { email: "test@example.com", name: "Test", time: Time.now }
             Rugged::Commit.create(repo,
                                   author: commit_author,
                                   message: "Added file #{full_subpath}",
                                   parents: repo.empty? ? [] : [repo.head.target].compact,
-                                  tree: commit_tree,
+                                  tree: index.write_tree(repo),
                                   update_ref: "HEAD")
 
             hostname = ENV["HOSTNAME"] || "localhost:9292"

@@ -11,7 +11,6 @@ class App < Roda
 
   def public_dir
     @public_dir ||= ENV["PUBLIC_DIR"] || "./public"
-    binding.pry
   end
 
   def setup_public_git_repo
@@ -80,7 +79,7 @@ class App < Roda
                                   update_ref: "HEAD")
 
             hostname = ENV["HOSTNAME"] || "localhost:3000"
-            { url: "http://#{hostname}/files/#{oid}/#{full_subpath}" }
+            "http://#{hostname}/files/#{oid}/#{full_subpath}"
           end
         end
       end

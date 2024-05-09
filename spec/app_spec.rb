@@ -1,5 +1,6 @@
 # spec/app_spec.rb
 require_relative "./spec_helper"
+require "pry-nav"
 
 ENV["PUBLIC_DIR"] = "tmp"
 RSpec.describe "File Management API", type: :request do
@@ -25,9 +26,9 @@ RSpec.describe "File Management API", type: :request do
       end
 
       it "uploads a file successfully" do
-        post "/files/", "file" => Rack::Test::UploadedFile.new(tempfile.path, "text/plain"), "filename" => filename
+        post "/files/", "file" => Rack::Test::UploadedFile.new(tempfile.path, "text/plain", false, original_filename: filename)
         expect(last_response.status).to eq(200)
-        expect(JSON.parse(last_response.body)["url"]).to include(filename)
+        expect(last_response.body).to end_with(filename)
       end
     end
   end
@@ -35,11 +36,21 @@ RSpec.describe "File Management API", type: :request do
   describe "GET /files/:sha1/:filename" do
     let(:sha1) { "1ba095dc345e2fdee0cea689a680e8dd8cebddbb" }
     let(:filename) { "coco.csv" }
+    let(:tempfile) { Tempfile.new("test") }
+    let(:filename) { "test.txt" }
+
+    before do
+      tempfile.write("Hello World")
+      tempfile.rewind
+    end
 
     it "retrieves the file successfully" do
-      get "/files/#{sha1}/#{filename}"
+      post "/files/", "file" => Rack::Test::UploadedFile.new(tempfile.path, "text/plain", false, original_filename: filename)
+      url = last_response.body
+      get URI.parse(url).path
+
       expect(last_response.status).to eq(200)
-      expect(last_response.body).to include("File content")
+      expect(last_response.body).to include("Hello World")
     end
 
     it "returns an error for non-existing file" do

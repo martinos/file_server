@@ -38,7 +38,7 @@ bundle exec rackup
 
 ## Environment Variables
 
--   `HOSTNAME`: Sets the hostname for the server. If not specified, defaults to `localhost:9292`.
+-   `HOSTNAME`: Sets the hostname for the server. If not specified, defaults to `localhost:3000`.
 
 ## API Usage
 
@@ -102,3 +102,4 @@ puts response.body
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+

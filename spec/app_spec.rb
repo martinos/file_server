@@ -30,6 +30,24 @@ RSpec.describe "File Management API", type: :request do
         expect(last_response.status).to eq(200)
         expect(last_response.body).to end_with(filename)
       end
+
+      it "keeps the filename provided in the path even if the filename field is provided" do
+        post "/files/tata.txt", "file" => Rack::Test::UploadedFile.new(tempfile.path, "text/plain", false, original_filename: filename)
+        expect(last_response.status).to eq(200)
+        expect(last_response.body).to end_with("tata.txt")
+      end
+
+      it "uses anonymous.txt filename if no name is provided in the path or in the filename field" do
+        post "/files/", "file" => Rack::Test::UploadedFile.new(tempfile.path, "text/plain", false, original_filename: "-")
+        expect(last_response.status).to eq(200)
+        expect(last_response.body).to end_with("anonymous.txt")
+      end
+
+      it "retuns an error if the path is too deep" do
+        post "/files/a/b/c/d/e/f/", "file" => Rack::Test::UploadedFile.new(tempfile.path, "text/plain", false, original_filename: "-")
+        expect(last_response.status).to eq(400)
+        expect(JSON.parse(last_response.body)["error"]).to match(/Subpath too deep./)
+      end
     end
   end
 

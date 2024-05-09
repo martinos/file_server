@@ -3,6 +3,7 @@ require "rugged"
 require "json"
 require "cgi"
 require "mime-types"
+require "pry-nav"
 
 class App < Roda
   plugin :json
@@ -36,15 +37,19 @@ class App < Roda
 
     r.on "files" do
       r.post /(.*)/ do |subpath|
-        puts "SUBPATH= #{subpath}"
-        tempfile = r.params["file"][:tempfile]
         filename = r.params["file"][:filename]
+        # filename is set to - when curl reads file content from stdin if filename field is not set.
         if filename.nil? || filename == "-"
           filename = "anonymous.txt"
         end
 
         # Construct the full path
-        full_subpath = File.join(subpath, filename)
+        if subpath.end_with?("/")
+          full_subpath = File.join(subpath, filename)
+        else
+          full_subpath = subpath
+        end
+
         if subpath.empty?
           full_subpath = filename
         end
@@ -60,8 +65,8 @@ class App < Roda
             response.status = 403
             { error: "Access denied" }
           else
-            puts destination
             FileUtils.mkdir_p(File.dirname(destination))
+            tempfile = r.params["file"][:tempfile]
             FileUtils.mv(tempfile.path, destination)
 
             repo = Rugged::Repository.new(public_dir)
@@ -78,7 +83,7 @@ class App < Roda
                                   tree: commit_tree,
                                   update_ref: "HEAD")
 
-            hostname = ENV["HOSTNAME"] || "localhost:3000"
+            hostname = ENV["HOSTNAME"] || "localhost:9292"
             "http://#{hostname}/files/#{oid}/#{full_subpath}"
           end
         end

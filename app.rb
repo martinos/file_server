@@ -44,15 +44,13 @@ class App < Roda
         end
 
         # Construct the full path
-        if subpath.end_with?("/")
-          full_subpath = File.join(subpath, filename)
-        else
-          full_subpath = subpath
-        end
+        full_subpath = if subpath.end_with?("/")
+            File.join(subpath, filename)
+          else
+            subpath
+          end
 
-        if subpath.empty?
-          full_subpath = filename
-        end
+        full_subpath = filename if subpath.empty?
 
         # Prevent directory traversal and limit subpath depth
         if full_subpath.split("/").reject(&:empty?).length > 5
@@ -69,7 +67,6 @@ class App < Roda
 
             repo = Rugged::Repository.bare(File.join(public_dir, ".git"))
             oid = Rugged::Blob.from_io(repo, tempfile)
-            index = Rugged::Index.new
             index = repo.index
             index.add(path: full_subpath, oid: oid, mode: 0100644)
             commit_author = { email: "test@example.com", name: "Test", time: Time.now }
@@ -88,8 +85,6 @@ class App < Roda
 
       r.get %r{(\h{40})/(.+)} do |sha1, filename|
         filename = CGI.unescape(filename.gsub("%20", " "))
-        path = File.join(public_dir, filename)
-
         begin
           repo = Rugged::Repository.new(public_dir)
           blob = repo.lookup(sha1)

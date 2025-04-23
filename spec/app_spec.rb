@@ -1,5 +1,6 @@
 # spec/app_spec.rb
 require_relative "./spec_helper"
+require "digest"
 require "pry-nav"
 
 ENV["PUBLIC_DIR"] = "tmp"
@@ -53,28 +54,39 @@ RSpec.describe "File Management API", type: :request do
 
   describe "GET /files/:sha1/:filename" do
     let(:sha1) { "1ba095dc345e2fdee0cea689a680e8dd8cebddbb" }
-    let(:filename) { "coco.csv" }
     let(:tempfile) { Tempfile.new("test") }
     let(:filename) { "test.txt" }
 
     before do
       tempfile.write("Hello World")
       tempfile.rewind
+
+      post "/files/", "file" => Rack::Test::UploadedFile.new(tempfile.path, "text/plain", false, original_filename: filename)
+
+      url = last_response.body
+      @path = URI.parse(url).path
     end
 
     it "retrieves the file successfully" do
-      post "/files/", "file" => Rack::Test::UploadedFile.new(tempfile.path, "text/plain", false, original_filename: filename)
-      url = last_response.body
-      get URI.parse(url).path
-
+      get @path
+      # We post then we do a get on the file
       expect(last_response.status).to eq(200)
       expect(last_response.body).to include("Hello World")
     end
 
-    it "returns an error for non-existing file" do
-      get "/files/#{sha1}/non_existing_file.txt"
+    it "returns an error non existing sha1" do
+      get "/files/#{Digest::SHA1.hexdigest("abc")}/non_existing_file.txt"
       expect(last_response.status).to eq(404)
       expect(JSON.parse(last_response.body)["error"]).to eq("File not found")
+    end
+
+    it "sets the text/plain;charset=utf8 on content-type" do
+      get @path
+      # We post then we do a get on the file
+      expect(last_response.status).to eq(200)
+      expect(last_response.body).to include("Hello World")
+      headers = last_response.headers
+      expect(headers["content-type"]).to eq("text/plain; charset=utf-8")
     end
   end
 end

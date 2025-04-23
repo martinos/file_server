@@ -28,21 +28,24 @@ class App < Roda
     type ? type.content_type : "text/plain"
   end
 
+  def with_charset(content_type)
+    if content_type == "text/plain"
+      content_type += "; charset=utf-8"
+    end
+    content_type
+  end
+
   def inline_content?(content_type)
     content_type.start_with?("text/") || content_type.include?("script") || content_type == "application/json"
   end
 
   route do |r|
     setup_public_git_repo
-
     r.on "files" do
       r.post /(.*)/ do |subpath|
         filename = r.params["file"][:filename]
         # filename is set to - when curl reads file content from stdin if filename field is not set.
-        if filename.nil? || filename == "-"
-          filename = "anonymous.txt"
-        end
-
+        filename = "anonymous.txt" if filename.nil? || filename == "-"
         # Construct the full path
         full_subpath = if subpath.end_with?("/")
             File.join(subpath, filename)
@@ -59,7 +62,7 @@ class App < Roda
         else
           destination = File.join(public_dir, full_subpath)
 
-          unless File.expand_path(destination).start_with?(File.expand_path(public_dir))
+          if !File.expand_path(destination).start_with?(File.expand_path(public_dir))
             response.status = 403
             { error: "Access denied" }
           else
@@ -68,8 +71,8 @@ class App < Roda
             repo = Rugged::Repository.bare(File.join(public_dir, ".git"))
             oid = Rugged::Blob.from_io(repo, tempfile)
             index = repo.index
-            index.add(path: full_subpath, oid: oid, mode: 0100644)
-            commit_author = { email: "test@example.com", name: "Test", time: Time.now }
+            index.add(path: full_subpath, oid: oid, mode: 0o100644)
+            commit_author = { email: "devs@isptelecom.net", name: "dev", time: Time.now }
             Rugged::Commit.create(repo,
                                   author: commit_author,
                                   message: "Added file #{full_subpath}",
@@ -91,7 +94,7 @@ class App < Roda
           content_type = content_type_from_extension(filename)
           disposition = inline_content?(content_type) ? "inline" : "attachment; filename=\"#{File.basename(filename)}\""
 
-          response["Content-Type"] = content_type
+          response["Content-Type"] = with_charset(content_type)
           response["Content-Disposition"] = disposition
           response.write(blob.content)
         rescue Rugged::OdbError
